@@ -24,5 +24,10 @@ PointerPrototypeの継承という、数ある使い方のうちの一つを使�
 
 ひとつだけ  
 p5.jsでは現在、mousePressed()ではタッチ操作の代わりができなくなっています。  
-詳しくは：https://github.com/processing/p5.js/issues/7195
+詳しくは：https://github.com/processing/p5.js/issues/7195  
+
+応用：お天気APIを使った簡易天気予報：https://openprocessing.org/sketch/2385483  
+これのスクロールで地味に活躍してます  
+ホイール、タッチスワイプ、マウスドラッグのいずれでもページを進められるんですが、  
+統一的に書くのに非常に重宝してます。
   
