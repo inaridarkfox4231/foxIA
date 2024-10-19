@@ -246,7 +246,7 @@ const foxIA = (function(){
     }
     mouseMoveAction(e){
     }
-    mouseUpAction(){
+    mouseUpAction(e){
     }
     touchInitialize(t, rect, parent = null){
       this.id = t.identifier;
@@ -374,10 +374,9 @@ const foxIA = (function(){
       }).bind(this));
 
       // options. これらは基本パソコン環境前提なので（スマホが関係ないので）、オプションとします。
-      // リサイズも滅多に使わないのでオプションで。
       const {
         mouseenter = false, mouseleave = false, click = false, dblclick = false,
-        keydown = false, keyup = false, resize = false
+        keydown = false, keyup = false
       } = options;
       // マウスの出入り
       if (mouseenter) { canvas.addEventListener('mouseenter', this.mouseEnterAction.bind(this), {passive:false}); }
@@ -389,8 +388,6 @@ const foxIA = (function(){
       // いわゆる押しっぱなしの時の処理についてはフラグの切り替えのために両方必要になるわね
       if (keydown) { window.addEventListener('keydown', this.keyDownAction.bind(this), {passive:false}); }
       if (keyup) { window.addEventListener('keyup', this.keyUpAction.bind(this), {passive:false}); }
-      // リサイズ。
-      if (resize) { canvas.addEventListener('resize', this.resizeAction.bind(this), {passive:false}); }
     }
     updateCanvasData(){
       const newRect = canvas.getBoundingClientRect();
@@ -436,19 +433,19 @@ const foxIA = (function(){
     mouseMoveDefaultAction(dx, dy, x, y){
       // Interactionサイドの実行内容を書く
     }
-    mouseUpAction(){
-      this.mouseUpPointerAction();
-      this.mouseUpDefaultAction();
+    mouseUpAction(e){
+      this.mouseUpPointerAction(e);
+      this.mouseUpDefaultAction(e);
     }
-    mouseUpPointerAction(){
+    mouseUpPointerAction(e){
       // pointerが生成されなかった場合は処理を実行しない
       if(this.pointers.length === 0){ return; }
       // ここで排除するpointerに何かさせる...
       const p = this.pointers[0];
-      p.mouseUpAction();
+      p.mouseUpAction(e);
       this.pointers.pop();
     }
-    mouseUpDefaultAction(){
+    mouseUpDefaultAction(e){
       // Interactionサイドの実行内容を書く
     }
     mouse(e){
@@ -691,7 +688,7 @@ const foxIA = (function(){
     mouseMoveDefaultAction(dx, dy, x, y){
       this.execute("mousemove", arguments);
     }
-    mouseUpDefaultAction(){
+    mouseUpDefaultAction(e){
       this.execute("mouseup", arguments);
     }
     wheelAction(e){
@@ -720,9 +717,6 @@ const foxIA = (function(){
     }
     touchStartDefaultAction(e){
       this.execute("touchstart", arguments);
-    }
-    doubleTapAction(){
-      this.execute("dbltap", arguments);
     }
   }
 
@@ -756,7 +750,7 @@ const foxIA = (function(){
       this.actions.activate = (e) => {};
       this.actions.move = (x, y, dx, dy) => {};
       this.actions.update = (x, y, dx, dy) => {};
-      this.actions.inActivate = () => {};
+      this.actions.inActivate = (e) => {};
       // ボタン.
       this.button = -1;
     }
@@ -838,11 +832,11 @@ const foxIA = (function(){
         this.actions.move(x, y, dx, dy);
       }
     }
-    mouseUpDefaultAction(){
+    mouseUpDefaultAction(e){
       // activateされていないなら各種の処理は不要
       if (!this.active) return;
       this.active = false;
-      this.actions.inActivate();
+      this.actions.inActivate(e);
       // ボタンリセット
       this.button = -1;
     }
@@ -862,7 +856,7 @@ const foxIA = (function(){
       // ここもactiveでないのに実行されてしまうようですね...防いでおくか。
       if (this.active && this.pointers.length === 0) {
         this.active = false;
-        this.actions.inActivate();
+        this.actions.inActivate(e);
       }
     }
   }
@@ -1140,6 +1134,62 @@ const foxIA = (function(){
     }
   }
 
+  // Commander.
+  // PointerPrototypeの継承でなんかやりたいけどいちいち書くのめんどくさい、
+  // 別にプロパティ持たせる気はなくて、this.xやthis.yでぐりぐりしたいだけなんだ...
+  // って時に便利です。きちんと設計したい場合は自由度の高い通常のやり方を用いましょう。
+  // pointerdown, pointermove, pointerupを使うと個別に処理を書くのをサボれます。
+  class Commander extends Interaction{
+    constructor(cvs, options = {}, commands = {}){
+      options.factory = () => {
+        return new Soldier(commands);
+      }
+      super(cvs, options);
+    }
+  }
+
+  // 内部クラス。これも供用した方がいいのかしら（もしかしたら便利かもしれない）
+  class Soldier extends PointerPrototype{
+    constructor(commands = {}){
+      super();
+      const {
+        mousedown = (e,p) => {},
+        mousemove = (e,p) => {},
+        mouseup = (e,p) => {},
+        touchstart = (t,p) => {},
+        touchmove = (t,p) => {},
+        touchend = (t,p) => {},
+        pointerdown,
+        pointermove,
+        pointerup
+      } = commands;
+      this.mousedown = (pointerdown === undefined ? mousedown : pointerdown);
+      this.mousemove = (pointermove === undefined ? mousemove : pointermove);
+      this.mouseup = (pointerup === undefined ? mouseup : pointerup);
+      this.touchstart = (pointerdown === undefined ? touchstart : pointerdown);
+      this.touchmove = (pointermove === undefined ? touchmove : pointermove);
+      this.touchend = (pointerup === undefined ? touchend : pointerup);
+    }
+    mouseDownAction(e){
+      this.mousedown(e, this);
+    }
+    mouseMoveAction(e){
+      this.mousemove(e, this);
+    }
+    mouseUpAction(e){
+      this.mouseup(e, this);
+    }
+    touchStartAction(e){
+      this.touchstart(e, this);
+    }
+    touchMoveAction(e){
+      this.touchmove(e, this);
+    }
+    touchEndAction(e){
+      this.touchend(e, this);
+    }
+  }
+
   fox.Interaction = Interaction;
   fox.PointerPrototype = PointerPrototype;
   fox.Inspector = Inspector;
@@ -1148,6 +1198,8 @@ const foxIA = (function(){
   fox.KeyAction = KeyAction;
   fox.Damper = Damper; // DamperとScrollerを分離(20241010)
   fox.Scroller = Scroller; // 追加(20241008)
+  fox.Commander = Commander; // 追加(20241020)
+  fox.Soldier = Soldier; // 追加(20241020)
 
   return fox;
 })();
